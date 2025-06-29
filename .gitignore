@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+.env
+.env.local
+.env.*.local
+# Ignore everything in uploads/
+uploads/*
+
+# Except the folder itself (keep it tracked)
+!uploads/.gitkeep
+
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDE-specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Optional DB dump/temp files
+*.sql
+*.dump
+*.bak
