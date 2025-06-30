@@ -6,25 +6,32 @@
   require("dotenv").config();
 
   const db = require("./models");
+  console.log("Mounting adminRoutes...");
   const adminRoutes = require("./routes/adminRoutes");
+  
   const riderRoutes = require("./routes/riderRoutes");
 
   const app = express();
+
 
   // ✅ Use dynamic base URL (for local vs Railway)
   const BASE_URL =
     process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
 
-  // ✅ CORS: allow frontend dev server (localhost) + Railway frontend
-  app.use(
-    cors({
-      origin: [
-        "http://localhost:5173",
-        process.env.VITE_API_BASE_URL, // (optional) set on Railway if needed
-      ].filter(Boolean),
-      credentials: true,
-    })
-  );
+    const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN;
+
+
+if (!FRONTEND_ORIGIN) {
+  throw new Error("❌ FRONTEND_ORIGIN not set in .env or Railway Variables");
+}
+const allowedOrigin = FRONTEND_ORIGIN;
+
+
+
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true,
+}));
 
   app.use(express.json());
 
@@ -32,21 +39,27 @@
   const sessionStore = new SequelizeStore({
     db: db.sequelize,
   });
+const isProd = process.env.NODE_ENV === "production";
+console.log("Running in production mode:", isProd);
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "mySecretKey",
-      store: sessionStore,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-      },
-    })
-  );
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "mySecretKey",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: isProd, // ❗Only true in production (HTTPS)
+      sameSite: isProd ? "none" : "lax", // ❗Lax for localhost
+      domain: isProd ? ".up.railway.app" : undefined, // ❗Only set domain in production
+    },
+  })
+);
+console.log("Using SESSION_SECRET:", process.env.SESSION_SECRET?.slice(0, 10) + "...");
+
+
 
   // ✅ Sync session table
   sessionStore.sync();
@@ -71,14 +84,6 @@
     }
   });
 
-  // ✅ Serve React frontend (in production only)
-  if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "client-dist")));
-
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "client-dist", "index.html"));
-    });
-  }
 
   // ✅ Start the server + cron job
   const port = process.env.PORT || 5000;

@@ -22,7 +22,8 @@ const sequelize = process.env.DATABASE_URL
       {
         host: process.env.DB_HOST,
         dialect: 'postgres',
-        port: process.env.DB_PORT || 3000,
+       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+
         logging: false,
       }
     );

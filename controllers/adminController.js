@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const path = require('path');
 const fs = require('fs');
 const deadline = require("../models/deadline");
+const isProd = process.env.NODE_ENV === "production";
 
 
 const Admin = db.Admin;
@@ -36,22 +37,34 @@ exports.loginAdmin = async (req, res) => {
       });
     }
 
-    // Set session
+    // ✅ Set session
     req.session.admin = {
       id: admin.id,
       name: admin.name,
       role: admin.role,
     };
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      admin: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-      },
+    // ✅ SAVE SESSION before sending response
+    req.session.save((err) => {
+      if (err) {
+        console.error("❌ Session save error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Could not save session",
+        });
+      }
+
+      // ✅ Only send response after session is saved
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        admin: {
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role,
+        },
+      });
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -64,11 +77,23 @@ exports.loginAdmin = async (req, res) => {
 
 exports.logoutAdmin = (req, res) => {
   req.session.destroy((err) => {
-    if (err) return res.status(500).json({ message: "Logout failed" });
-    res.clearCookie("connect.sid");
+    if (err) {
+      return res.status(500).json({ message: "Logout failed" });
+    }
+
+    // ✅ Must match same cookie settings used during login
+    res.clearCookie("connect.sid", {
+      path: "/",
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      domain: isProd ? ".up.railway.app" : undefined,
+    });
+
     res.json({ message: "Logged out successfully" });
   });
 };
+
 
 exports.checkAdminSession = (req, res) => {
    if (req.session.admin) {
